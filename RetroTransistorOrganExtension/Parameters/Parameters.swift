@@ -13,6 +13,7 @@ let RetroTransistorOrganExtensionParameterSpecs = ParameterTreeSpec {
         ParameterSpec(address: .gain, identifier: "gain", name: "Output Gain", units: .linearGain, valueRange: 0.0...1.0, defaultValue: 0.25)
         ParameterSpec(address: .vibrato, identifier: "vibrato", name: "Vibrato", units: .boolean, valueRange: 0.0...1.0, defaultValue: 0.0)
         ParameterSpec(address: .ensemble, identifier: "ensemble", name: "Ensemble", units: .boolean, valueRange: 0.0...1.0, defaultValue: 0.0)
+        ParameterSpec(address: .expressionMin, identifier: "expressionMin", name: "Expression Min", units: .decibels, valueRange: -60.0...(-20.0), defaultValue: -40.0)
     }
     ParameterGroupSpec(identifier: "upper", name: "Upper") {
         ParameterSpec(address: .upperTibia16, identifier: "upperTibia16", name: "Tibia 16'", units: .boolean, valueRange: 0.0...1.0, defaultValue: 0.0)

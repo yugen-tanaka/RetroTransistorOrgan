@@ -61,41 +61,52 @@ public class AudioUnitViewController: AUViewController, AUAudioUnitFactory {
         configureSwiftUIView(audioUnit: audioUnit)
     }
     
-	nonisolated public func createAudioUnit(with componentDescription: AudioComponentDescription) throws -> AUAudioUnit {
-		return try DispatchQueue.main.sync {
-			
-			audioUnit = try RetroTransistorOrganExtensionAudioUnit(componentDescription: componentDescription, options: [])
-			
-			guard let audioUnit = self.audioUnit as? RetroTransistorOrganExtensionAudioUnit else {
-				log.error("Unable to create RetroTransistorOrganExtensionAudioUnit")
-				return audioUnit!
-			}
-			
-			defer {
-				// Configure the SwiftUI view after creating the AU, instead of in viewDidLoad,
-				// so that the parameter tree is set up before we build our @AUParameterUI properties
-				DispatchQueue.main.async {
-					self.configureSwiftUIView(audioUnit: audioUnit)
-				}
-			}
-			
-			audioUnit.setupParameterTree(RetroTransistorOrganExtensionParameterSpecs.createAUParameterTree())
-			
-			self.observation = audioUnit.observe(\.allParameterValues, options: [.new]) { object, change in
-				guard let tree = audioUnit.parameterTree else { return }
-				
-				// This insures the Audio Unit gets initial values from the host.
-				for param in tree.allParameters { param.value = param.value }
-			}
-			
-			guard audioUnit.parameterTree != nil else {
-				log.error("Unable to access AU ParameterTree")
-				return audioUnit
-			}
-			
-			return audioUnit
-		}
-	}
+    nonisolated public func createAudioUnit(with componentDescription: AudioComponentDescription) throws -> AUAudioUnit {
+        if Thread.isMainThread {
+            return try MainActor.assumeIsolated {
+                try self.createAudioUnitInternal(with: componentDescription)
+            }
+        } else {
+            return try DispatchQueue.main.sync {
+                return try self.createAudioUnitInternal(with: componentDescription)
+            }
+        }
+    }
+    
+    private func createAudioUnitInternal(with componentDescription: AudioComponentDescription) throws -> AUAudioUnit {
+        audioUnit = try RetroTransistorOrganExtensionAudioUnit(componentDescription: componentDescription, options: [])
+        
+        guard let audioUnit = self.audioUnit as? RetroTransistorOrganExtensionAudioUnit else {
+            log.error("Unable to create RetroTransistorOrganExtensionAudioUnit")
+            return self.audioUnit!
+        }
+        
+        defer {
+            // Configure the SwiftUI view after creating the AU, if the view is already loaded.
+            // If the view is not loaded yet, viewDidLoad will handle the configuration.
+            DispatchQueue.main.async {
+                if self.isViewLoaded {
+                    self.configureSwiftUIView(audioUnit: audioUnit)
+                }
+            }
+        }
+        
+        audioUnit.setupParameterTree(RetroTransistorOrganExtensionParameterSpecs.createAUParameterTree())
+        
+        self.observation = audioUnit.observe(\.allParameterValues, options: [.new]) { object, change in
+            guard let tree = audioUnit.parameterTree else { return }
+            
+            // This insures the Audio Unit gets initial values from the host.
+            for param in tree.allParameters { param.value = param.value }
+        }
+        
+        guard audioUnit.parameterTree != nil else {
+            log.error("Unable to access AU ParameterTree")
+            return audioUnit
+        }
+        
+        return audioUnit
+    }
     
     private func configureSwiftUIView(audioUnit: AUAudioUnit) {
         if let host = hostingController {

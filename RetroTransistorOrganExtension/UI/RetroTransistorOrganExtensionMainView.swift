@@ -77,13 +77,19 @@ struct RetroTransistorOrganExtensionMainView: View {
                     }
                     VStack {
                         Text("Master").font(.headline)
-                        ParameterSlider(param: parameterTree.global.gain)
-                            .frame(width: 200, height: 44)
-                            .fixedSize(horizontal: true, vertical: true)
-                            .rotationEffect(.degrees(-90.0), anchor: .center)
-                            .frame(width: 44, height: 200)
-                            .background(Color.gray.opacity(0.1))
-                            .cornerRadius(12)
+                        HStack(spacing: 16) {
+                            ParameterSlider(param: parameterTree.global.gain)
+                                .frame(width: 200, height: 44)
+                                .fixedSize(horizontal: true, vertical: true)
+                                .rotationEffect(.degrees(-90.0), anchor: .center)
+                                .frame(width: 44, height: 200)
+                            
+                            BlackKnobVerticalSliderParameterView(param: parameterTree.global.expressionMin, title: "EXPR MIN")
+                                .frame(height: 200)
+                        }
+                        .padding(18)
+                        .background(Color.gray.opacity(0.1))
+                        .cornerRadius(12)
                     }
                 }
                 
