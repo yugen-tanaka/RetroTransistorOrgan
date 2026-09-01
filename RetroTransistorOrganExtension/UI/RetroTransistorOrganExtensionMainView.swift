@@ -54,7 +54,8 @@ struct RetroTransistorOrganExtensionMainView: View {
                             StopLeverParameterView(param: parameterTree.lower.lowerHorn, tablet: Tablet(voiceName: "HORN", footage: "8", theme: .red))
                             StopLeverParameterView(param: parameterTree.lower.lowerString4, tablet: Tablet(voiceName: "STRING", footage: "4", theme: .yellow))
                             Spacer().frame(width: 24)
-                            RotaryKnobParameterView(param: parameterTree.lower.lowerVolume, title: "VOLUME")
+                            BlackKnobVerticalSliderParameterView(param: parameterTree.lower.lowerVolume, title: "VOLUME", unit: "", formatString: "%.1f", showMarks: false)
+                                .frame(height: 130)
                         }
                         .padding(18)
                         .background(Color.gray.opacity(0.1))
@@ -68,8 +69,10 @@ struct RetroTransistorOrganExtensionMainView: View {
                             StopLeverParameterView(param: parameterTree.pedal.pedalMajorFlute8, tablet: Tablet(voiceName: "MAJOR FLUTE", footage: "8", theme: .white))
                             StopLeverParameterView(param: parameterTree.pedal.pedalSustain, tablet: Tablet(voiceName: "SUSTAIN", footage: nil, theme: .black))
                             Spacer().frame(width: 24)
-                            RotaryKnobParameterView(param: parameterTree.pedal.pedalSustainLength, title: "SUSTAIN")
-                            RotaryKnobParameterView(param: parameterTree.pedal.pedalVolume, title: "VOLUME")
+                            BlackKnobVerticalSliderParameterView(param: parameterTree.pedal.pedalSustainLength, title: "SUSTAIN", unit: "s", formatString: "%.1f", showMarks: false)
+                                .frame(height: 130)
+                            BlackKnobVerticalSliderParameterView(param: parameterTree.pedal.pedalVolume, title: "VOLUME", unit: "", formatString: "%.1f", showMarks: false)
+                                .frame(height: 130)
                         }
                         .padding(18)
                         .background(Color.gray.opacity(0.1))
