@@ -39,7 +39,7 @@ let RetroTransistorOrganExtensionParameterSpecs = ParameterTreeSpec {
     ParameterGroupSpec(identifier: "pedal", name: "Pedal") {
         ParameterSpec(address: .pedalBourdon16, identifier: "pedalBourdon16", name: "Bourdon 16'", units: .boolean, valueRange: 0.0...1.0, defaultValue: 0.0)
         ParameterSpec(address: .pedalMajorFlute8, identifier: "pedalMajorFlute8", name: "Major Flute 8'", units: .boolean, valueRange: 0.0...1.0, defaultValue: 0.0)
-        ParameterSpec(address: .pedalVolume, identifier: "pedalVolume", name: "Pedal Volume", units: .linearGain, valueRange: 0.5...1.5, defaultValue: 1.0)
+        ParameterSpec(address: .pedalVolume, identifier: "pedalVolume", name: "Pedal Volume", units: .linearGain, valueRange: 0.5...4.0, defaultValue: 2.0)
         ParameterSpec(address: .pedalSustain, identifier: "pedalSustain", name: "Pedal Sustain", units: .boolean, valueRange: 0.0...1.0, defaultValue: 0.0)
         ParameterSpec(address: .pedalSustainLength, identifier: "pedalSustainLength", name: "Pedal Sustain Length", units: .seconds, valueRange: 0.1...2.0, defaultValue: 0.3)
     }
