@@ -22,5 +22,6 @@ typedef NS_ENUM(AUParameterAddress, RetroTransistorOrganExtensionParameterAddres
     pedalBourdon16, pedalMajorFlute8,
     pedalVolume,
     pedalSustain, pedalSustainLength,
-    vibrato, ensemble
+    vibrato, ensemble,
+    expressionMin
 };

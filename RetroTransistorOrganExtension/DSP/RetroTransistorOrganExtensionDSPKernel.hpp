@@ -50,6 +50,11 @@ public:
         mPedalVoice.terminate();
         mHeldPedalNotes.fill(false);
         mActivePedalNote = -1;
+        
+        // エクスプレッションスムージング係数（時定数: 約15ms）の初期化
+        mExpressionSmoothingCoeff = 1.0 - std::exp(-1.0 / (0.015 * inSampleRate));
+        updateTargetExpressionGain();
+        mCurrentExpressionGain = mTargetExpressionGain;
     }
     
     void deInitialize() {
@@ -58,10 +63,26 @@ public:
     bool isBypassed() { return mBypassed; }
     void setBypass(bool shouldBypass) { mBypassed = shouldBypass; }
     
+    void setExpressionValue(double normalizedExpr) {
+        mExpressionValue = std::clamp(normalizedExpr, 0.0, 1.0);
+        updateTargetExpressionGain();
+    }
+    
+    void setExpressionMinDB(double minDB) {
+        mExpressionMinDB = minDB;
+        updateTargetExpressionGain();
+    }
+    
+    void updateTargetExpressionGain() {
+        double currentDB = mExpressionMinDB * (1.0 - mExpressionValue);
+        mTargetExpressionGain = std::pow(10.0, currentDB / 20.0);
+    }
+    
     void setParameter(AUParameterAddress address, AUValue value) {
         bool isOn = value > 0.5f;
         switch (address) {
             case gain: mGain = value; break;
+            case expressionMin: setExpressionMinDB(value); break;
             
             case upperTibia16: mUpperTibia16 = isOn; break;
             case upperTibia8:  mUpperTibia8  = isOn; break;
@@ -108,6 +129,7 @@ public:
     AUValue getParameter(AUParameterAddress address) {
         switch (address) {
             case gain: return mGain;
+            case expressionMin: return static_cast<AUValue>(mExpressionMinDB);
             case upperTibia16: return mUpperTibia16 ? 1.0f : 0.0f;
             case upperTibia8:  return mUpperTibia8 ? 1.0f : 0.0f;
             case upperTibia4:  return mUpperTibia4 ? 1.0f : 0.0f;
@@ -116,6 +138,7 @@ public:
             case upperString16:return mUpperString16 ? 1.0f : 0.0f;
             case upperString8: return mUpperString8 ? 1.0f : 0.0f;
             case upperClarinet: return mUpperClarinet ? 1.0f : 0.0f;
+            case upperOboe: return mUpperOboe ? 1.0f : 0.0f;
             case upperString4: return mUpperString4 ? 1.0f : 0.0f;
             case lowerTibia8:  return mLowerTibia8 ? 1.0f : 0.0f;
             case lowerTibia4:  return mLowerTibia4 ? 1.0f : 0.0f;
@@ -291,6 +314,8 @@ public:
             oboeSum *= 0.15 * mGain;
             hornSum *= 0.05 * mGain;
             
+            mCurrentExpressionGain += mExpressionSmoothingCoeff * (mTargetExpressionGain - mCurrentExpressionGain);
+            
             double outL = tibiaSum + pedalSum;
             double outR = stringSum + diapasonSum + clarinetSum + oboeSum + hornSum;
             
@@ -298,6 +323,9 @@ public:
                 outL += stringSum + diapasonSum + clarinetSum + oboeSum + hornSum;
                 outR = 0.0; // Stationary（R）からの出力をミュート
             }
+            
+            outL *= mCurrentExpressionGain;
+            outR *= mCurrentExpressionGain;
             
             if (outputBuffers.size() > 0) outputBuffers[0][frameIndex] = outL;
             if (outputBuffers.size() > 1) outputBuffers[1][frameIndex] = outR;
@@ -326,6 +354,8 @@ public:
             auto thisObject = static_cast<RetroTransistorOrganExtensionDSPKernel *>(context);
             if (message.type == kMIDIMessageTypeChannelVoice2) {
                 thisObject->handleMIDI2VoiceMessage(message);
+            } else if (message.type == kMIDIMessageTypeChannelVoice1) {
+                thisObject->handleMIDI1VoiceMessage(message);
             }
         };
         MIDIEventListForEachEvent(&midiEvent->eventList, visitor, this);
@@ -403,6 +433,15 @@ public:
     }
 
     void handleMIDI2VoiceMessage(const struct MIDIUniversalMessage& message) {
+        // Control Change: CC11 Expression (全チャンネル共通)
+        if (message.channelVoice2.status == kMIDICVStatusControlChange) {
+            if (message.channelVoice2.controlChange.index == 11) {
+                double expr = static_cast<double>(message.channelVoice2.controlChange.data) / 4294967295.0;
+                setExpressionValue(expr);
+            }
+            return;
+        }
+        
         const auto& note = message.channelVoice2.note;
         int ch = message.channelVoice2.channel;
         
@@ -448,6 +487,113 @@ public:
         }
     }
     
+    void handleMIDI1VoiceMessage(const struct MIDIUniversalMessage& message) {
+        // Control Change: CC11 Expression (全チャンネル共通)
+        if (message.channelVoice1.status == kMIDICVStatusControlChange) {
+            if (message.channelVoice1.controlChange.index == 11) {
+                double expr = static_cast<double>(message.channelVoice1.controlChange.data) / 127.0;
+                setExpressionValue(expr);
+            }
+            return;
+        }
+        
+        const auto& note = message.channelVoice1.note;
+        int ch = message.channelVoice1.channel;
+        
+        if (ch == 4) { // Pedal
+            switch (message.channelVoice1.status) {
+                case kMIDICVStatusNoteOff: {
+                    if (note.number >= 0 && note.number < 128) {
+                        mHeldPedalNotes[note.number] = false;
+                    }
+                    if (mActivePedalNote == note.number) {
+                        int lowestNote = -1;
+                        for (int i = 0; i < 128; ++i) {
+                            if (mHeldPedalNotes[i]) {
+                                lowestNote = i;
+                                break;
+                            }
+                        }
+                        if (lowestNote != -1) {
+                            handlePedalNoteOn(lowestNote);
+                        } else {
+                            handlePedalNoteOff(note.number);
+                            mActivePedalNote = -1;
+                        }
+                    }
+                    break;
+                }
+                case kMIDICVStatusNoteOn: {
+                    if (message.channelVoice1.note.velocity == 0) {
+                        if (note.number >= 0 && note.number < 128) {
+                            mHeldPedalNotes[note.number] = false;
+                        }
+                        if (mActivePedalNote == note.number) {
+                            int lowestNote = -1;
+                            for (int i = 0; i < 128; ++i) {
+                                if (mHeldPedalNotes[i]) {
+                                    lowestNote = i;
+                                    break;
+                                }
+                            }
+                            if (lowestNote != -1) {
+                                handlePedalNoteOn(lowestNote);
+                            } else {
+                                handlePedalNoteOff(note.number);
+                                mActivePedalNote = -1;
+                            }
+                        }
+                        break;
+                    }
+                    if (note.number >= 0 && note.number < 128) {
+                        mHeldPedalNotes[note.number] = true;
+                    }
+                    handlePedalNoteOn(note.number);
+                    break;
+                }
+                default:
+                    break;
+            }
+            return;
+        }
+        
+        if (ch != 0 && ch != 3) {
+            return;
+        }
+        
+        switch (message.channelVoice1.status) {
+            case kMIDICVStatusNoteOff: {
+                for (int i = 0; i < kMaxPolyphony; ++i) {
+                    if (mVoices[i].isActive() && mVoices[i].getNote() == note.number && mVoices[i].getChannel() == ch) {
+                        mVoices[i].noteOff();
+                    }
+                }
+                break;
+            }
+            case kMIDICVStatusNoteOn: {
+                if (message.channelVoice1.note.velocity == 0) {
+                    for (int i = 0; i < kMaxPolyphony; ++i) {
+                        if (mVoices[i].isActive() && mVoices[i].getNote() == note.number && mVoices[i].getChannel() == ch) {
+                            mVoices[i].noteOff();
+                        }
+                    }
+                    break;
+                }
+                
+                for (int i = 0; i < kMaxPolyphony; ++i) {
+                    if (!mVoices[i].isActive()) {
+                        mVoices[i].initialize(note.number, ch, mSampleRate);
+                        mVoices[i].noteOn();
+                        break;
+                    }
+                }
+                break;
+            }
+            default:
+                break;
+        }
+    }
+    
 private:
     AUHostMusicalContextBlock mMusicalContextBlock;
     
@@ -455,6 +601,11 @@ private:
     double mGain = 0.25;
     double mLowerVolume = 1.0;
     double mPedalVolume = 1.0;
+    double mExpressionValue = 1.0;
+    double mExpressionMinDB = -40.0;
+    double mTargetExpressionGain = 1.0;
+    double mCurrentExpressionGain = 1.0;
+    double mExpressionSmoothingCoeff = 0.0015;
     bool mBypassed = false;
     AUAudioFrameCount mMaxFramesToRender = 1024;
     
