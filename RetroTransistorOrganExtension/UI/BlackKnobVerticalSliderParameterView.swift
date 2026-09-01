@@ -10,6 +10,10 @@ import SwiftUI
 struct BlackKnobVerticalSliderParameterView: View {
     @State var param: ObservableAUParameter
     let title: String
+    var unit: String = "dB"
+    var formatString: String = "%.0f"
+    var marks: [String]? = nil
+    var showMarks: Bool = true
     
     var body: some View {
         let binding = Binding<Double>(
@@ -23,7 +27,11 @@ struct BlackKnobVerticalSliderParameterView: View {
         BlackKnobVerticalSlider(
             title: title,
             value: binding,
-            range: Double(param.min)...Double(param.max)
+            range: Double(param.min)...Double(param.max),
+            unit: unit,
+            formatString: formatString,
+            marks: marks,
+            showMarks: showMarks
         )
     }
 }

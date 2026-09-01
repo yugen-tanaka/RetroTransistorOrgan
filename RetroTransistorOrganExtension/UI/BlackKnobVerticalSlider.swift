@@ -11,6 +11,10 @@ struct BlackKnobVerticalSlider: View {
     let title: String
     @Binding var value: Double
     var range: ClosedRange<Double> = -60.0...(-20.0)
+    var unit: String = "dB"
+    var formatString: String = "%.0f"
+    var marks: [String]? = nil
+    var showMarks: Bool = true
     
     private let trackHeight: CGFloat = 130
     private let trackWidth: CGFloat = 8
@@ -33,20 +37,36 @@ struct BlackKnobVerticalSlider: View {
             
             HStack(spacing: 6) {
                 // Scale marks on left
-                VStack(alignment: .trailing) {
-                    Text("-20")
-                        .font(.system(size: 8, weight: .semibold, design: .monospaced))
-                        .foregroundColor(.secondary)
-                    Spacer()
-                    Text("-40")
-                        .font(.system(size: 8, weight: .semibold, design: .monospaced))
-                        .foregroundColor(.secondary)
-                    Spacer()
-                    Text("-60")
-                        .font(.system(size: 8, weight: .semibold, design: .monospaced))
-                        .foregroundColor(.secondary)
+                if showMarks {
+                    VStack(alignment: .trailing) {
+                        if let customMarks = marks, customMarks.count >= 3 {
+                            Text(customMarks[0])
+                                .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Text(customMarks[1])
+                                .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Text(customMarks[2])
+                                .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                                .foregroundColor(.secondary)
+                        } else {
+                            Text(String(format: formatString, range.upperBound))
+                                .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Text(String(format: formatString, (range.upperBound + range.lowerBound) / 2))
+                                .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Text(String(format: formatString, range.lowerBound))
+                                .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .frame(height: trackHeight)
                 }
-                .frame(height: trackHeight)
                 
                 // Track and Black Knob Thumb
                 ZStack(alignment: .top) {
@@ -119,8 +139,8 @@ struct BlackKnobVerticalSlider: View {
                 )
             }
             
-            // Value display in dB
-            Text(String(format: "%.0f dB", value))
+            // Value display
+            Text(String(format: formatString, value) + (unit.isEmpty ? "" : " \(unit)"))
                 .font(.system(size: 10, weight: .bold, design: .monospaced))
                 .foregroundColor(.primary)
                 .padding(.horizontal, 6)
